@@ -1,41 +1,44 @@
 version: "3.8"
 
 services:
+  # Docker-in-Docker service
   dind:
-    image: docker:dind
-    privileged: true
+    image: docker:dind   # Official Docker-in-Docker image
+    privileged: true     # Required to run Docker daemon inside container
     networks:
       jenkins:
         aliases:
-          - docker
+          - docker       # Alias so Jenkins can reach DinD as "docker"
     environment:
-      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_TLS_CERTDIR: /certs   # Directory for Docker TLS certificates
     volumes:
-      - docker-certs-ca:/certs/ca
-      - docker-certs-client:/certs/client
-      - jenkins-data:/var/jenkins_home
+      - docker-certs-ca:/certs/ca          # Volume to persist CA certs
+      - docker-certs-client:/certs/client  # Volume to persist client certs
+      - jenkins-data:/var/jenkins_home     # Shared Jenkins home directory
 
+  # Jenkins service
   jenkins:
-    image: jenkins/jenkins:lts-jdk11
-    user: root
+    image: jenkins/jenkins:lts-jdk11  # Long-term support Jenkins with Java 11
+    user: root                        # Run as root (required to use Docker CLI inside)
     networks:
-      - jenkins
+      - jenkins                       # Connect Jenkins to the same network as DinD
     environment:
-      DOCKER_HOST: tcp://docker:2376
-      DOCKER_CERT_PATH: /certs/client
-      DOCKER_TLS_VERIFY: 1
+      DOCKER_HOST: tcp://docker:2376        # Tell Jenkins to use DinD service via TLS
+      DOCKER_CERT_PATH: /certs/client       # Path for client certs inside Jenkins
+      DOCKER_TLS_VERIFY: 1                  # Enforce TLS verification
     volumes:
-      - docker-certs-client:/certs/client:ro
-      - jenkins-data:/var/jenkins_home
+      - docker-certs-client:/certs/client:ro  # Mount client certs (read-only)
+      - jenkins-data:/var/jenkins_home        # Persist Jenkins home (jobs, configs, plugins)
     ports:
-      - "8080:8080"
-      - "50000:50000"
+      - "8080:8080"   # Web UI
+      - "50000:50000" # Agent communication port
 
+# Volumes to persist data across container restarts
 volumes:
-  docker-certs-ca:
-  docker-certs-client:
-  jenkins-data:
+  docker-certs-ca:       # Stores Docker CA certificates
+  docker-certs-client:   # Stores Docker client certificates
+  jenkins-data:          # Stores Jenkins home (jobs, builds, configs, plugins)
 
+# Network for Jenkins and DinD to communicate securely
 networks:
   jenkins:
-
